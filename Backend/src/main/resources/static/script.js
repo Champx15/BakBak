@@ -60,6 +60,16 @@ let stompClient = null;
                 subscribeToRoom(roomId);
             });
 
+                stompClient.subscribe('/queue/disconnect/' + userId, function(msg) {
+                    showGreeting("⚠️ Your partner has disconnected.", true);
+                    setButtonState('ready');
+                    roomId = null;
+                        setTimeout(function() {
+                            showGreeting("🔄 Finding you someone new...", true);
+                            connect();
+                        }, 3000);
+                });
+
             stompClient.send("/app/connect", {}, JSON.stringify({ userId: userId }));
         }, function(error) {
             console.error("Connection error:", error);
