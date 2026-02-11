@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>BakBak — Chat</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        /* =========================
+           RESET
+        ========================= */
+        *{
+            margin:0;
+            padding:0;
+            box-sizing:border-box;
+        }
+
+        /* =========================
+           THEME (matches homepage)
+        ========================= */
+        :root{
+            --bg:#000;
+            --surface:#0f0f0f;
+            --border:rgba(255,255,255,.12);
+
+            --text:#fff;
+            --muted:#888;
+
+            --accent:#ff3c00;
+        }
+
+        /* =========================
+           BODY
+        ========================= */
+        body{
+            font-family:'Unbounded',sans-serif;
+            background:var(--bg);
+            color:var(--text);
+            height:100vh;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            overflow:hidden;
+        }
+
+        /* grid background like homepage */
+        body::before{
+            content:"";
+            position:fixed;
+            inset:0;
+            background-image:radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px);
+            background-size:40px 40px;
+            pointer-events:none;
+        }
+
+        /* =========================
+           CONTAINER
+        ========================= */
+        .chat-container{
+            width:100%;
+            max-width:900px;
+            height:100vh;
+            display:flex;
+            flex-direction:column;
+            background:var(--bg);
+            border:white 1.6px solid;
+            border-radius:16px;
+        }
+
+        /* =========================
+           HEADER
+        ========================= */
+        .chat-header{
+            padding:22px;
+            border-bottom:1px solid var(--border);
+            text-align:center;
+        }
+
+        .brand h1{
+            font-size:2.3rem;
+            font-weight:900;
+            letter-spacing:-2px;
+        }
+
+        .brand p{
+            font-size:.8rem;
+            color:var(--muted);
+            margin-top:4px;
+        }
+
+        /* =========================
+           CONNECT BUTTON
+        ========================= */
+        .connection-bar{
+            padding:20px;
+            border-bottom:1px solid var(--border);
+        }
+
+        .btn-connect{
+            width:100%;
+            padding:18px;
+
+            background:white;
+            color:black;
+
+            font-family:'Unbounded';
+            font-weight:900;
+            font-size:1rem;
+
+            border:none;
+            cursor:pointer;
+            transition:.2s;
+        }
+
+        .btn-connect:hover{
+            background:var(--accent);
+            color:white;
+        }
+
+        .btn-connect:disabled{
+            opacity:0.6;
+            cursor:not-allowed;
+        }
+
+        /* Loading dots animation */
+        .loading-dots{
+            display:inline-flex;
+            gap:4px;
+        }
+
+        .loading-dots span{
+            display:inline-block;
+            width:6px;
+            height:6px;
+            border-radius:50%;
+            background:currentColor;
+            animation:bounce 1.4s infinite ease-in-out both;
+        }
+
+        .loading-dots span:nth-child(1){ animation-delay:-0.32s; }
+        .loading-dots span:nth-child(2){ animation-delay:-0.16s; }
+
+        @keyframes bounce{
+            0%, 80%, 100%{
+                transform:scale(0);
+            }
+            40%{
+                transform:scale(1);
+            }
+        }
+
+        /* =========================
+           MESSAGES AREA
+        ========================= */
+        .message-area{
+            flex:1;
+            overflow-y:auto;
+            padding:20px;
+            display:flex;
+            flex-direction:column;
+            gap:12px;
+        }
+
+        /* empty */
+        .empty-state{
+            margin:auto;
+            text-align:center;
+            color:var(--muted);
+        }
+
+        /* messages wrapper */
+        .messages-wrapper{
+            display:flex;
+            flex-direction:column;
+            gap:12px;
+        }
+
+        /* bubbles */
+        .message-item{
+            max-width:75%;
+            padding:12px 16px;
+            font-size:.85rem;
+            line-height:1.5;
+            border-radius:14px;
+        }
+
+        .sent{
+            align-self:flex-end;
+            background:var(--accent);
+            color:white;
+        }
+
+        .received{
+            align-self:flex-start;
+            background:var(--surface);
+            border:1px solid var(--border);
+        }
+
+        .system-message{
+            align-self:center;
+            max-width:90%;
+            background:rgba(255,255,255,.05);
+            border:1px solid var(--border);
+            text-align:center;
+            font-size:.8rem;
+        }
+
+        .message-sender{
+            font-size:.7rem;
+            opacity:.7;
+            margin-bottom:4px;
+        }
+
+        .message-text{
+            font-size:.85rem;
+        }
+
+        /* =========================
+           INPUT
+        ========================= */
+        .input-area{
+            border-top:1px solid var(--border);
+            padding:16px;
+        }
+
+        .input-form{
+            display:flex;
+            gap:10px;
+        }
+
+        .message-input{
+            flex:1;
+            padding:14px;
+
+            background:#0d0d0d;
+            border:1px solid var(--border);
+
+            color:white;
+            font-family:'Unbounded';
+        }
+
+        .message-input:focus{
+            outline:none;
+            border-color:var(--accent);
+        }
+
+        .btn-send{
+            padding:14px 22px;
+            background:var(--accent);
+            border:none;
+            color:white;
+            font-family:'Unbounded';
+            font-weight:800;
+            cursor:pointer;
+        }
+
+        .btn-send:disabled{
+            opacity:0.5;
+            cursor:not-allowed;
+        }
+
+        /* =========================
+           RESPONSIVE
+        ========================= */
+        @media(max-width:768px){
+
+            .chat-container{
+                height:100vh;
+                padding-bottom: 3.3rem;
+                border: none;
+            }
+
+            .brand h1{
+                font-size:3.4rem;
+            }
+
+            .btn-connect{
+                font-size:.9rem;
+                padding:14px;
+            }
+
+            .message-item{
+                font-size:.8rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="chat-container">
+
+    <!-- HEADER -->
+    <div class="chat-header">
+        <div class="brand">
+            <h1>BakBak</h1>
+            <p>Instant anonymous chat</p>
+        </div>
+    </div>
+
+    <!-- CONNECT -->
+    <div class="connection-bar">
+        <button class="btn-connect" id="nextBtn">
+            <span id="btnText">Start Connecting</span>
+        </button>
+    </div>
+
+    <!-- MESSAGES -->
+    <div class="message-area" id="messageArea">
+        <div class="empty-state" id="emptyState">
+            Click "Start Connecting" to meet someone new
+        </div>
+
+        <div id="messages" class="messages-wrapper"></div>
+    </div>
+
+    <!-- INPUT -->
+    <div class="input-area">
+        <form id="messageForm" class="input-form">
+            <input
+                    id="message"
+                    type="text"
+                    class="message-input"
+                    placeholder="Type message..."
+                    autocomplete="off"
+            >
+            <button id="send" class="btn-send" type="submit">Send</button>
+        </form>
+    </div>
+
+</div>
+
+<script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+<script src="/script.js"></script>
+
+</body>
+</html>
