@@ -24,7 +24,8 @@ public class ChatController {
         boolean toxic = perspectiveService.isToxic(response)
                 || containsIndianSwear(msg.getMessage());
         if(!toxic) return msg;
-        return new Message(msg.getName(),""); // returned object is sent to subscribers
+        System.out.println("msg:"+ msg);
+        return new Message(msg.getName(),"⚠ This message can't be seen"); // returned object is sent to subscribers
     }
 
     public boolean containsIndianSwear(String message){
