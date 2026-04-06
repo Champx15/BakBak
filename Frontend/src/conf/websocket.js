@@ -128,7 +128,7 @@ export function initiateConnection(onMessageReceived, callbacks = {}) {
   try {
     const apiUrl = new URL(conf.apiBase);
     const protocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:';
-    wsURL = `${protocol}//${apiUrl.host}${apiUrl.pathname}/ws`;
+    wsURL = `${protocol}//${apiUrl.host}${apiUrl.pathname}ws`;
     console.log("🔧 WebSocket URL:", wsURL);
   } catch (error) {
     console.error("❌ Error parsing conf.apiBase:", error);
