@@ -25,7 +25,7 @@ public class ChatController {
                 || containsIndianSwear(msg.getMessage());
         if(!toxic) return msg;
         System.out.println("msg:"+ msg);
-        return new Message(msg.getName(),"⚠ This message can't be seen"); // returned object is sent to subscribers
+        return new Message(msg.getName(),"⚠ This message can't be sent"); // returned object is sent to subscribers
     }
 
     public boolean containsIndianSwear(String message){

@@ -22,6 +22,65 @@ let stompClient = null;
         }
     }
 
+    // constraints
+    const constraints = {
+      video: {
+        width: { ideal: 320, max: 480 },
+        height: { ideal: 240, max: 360 },
+        frameRate: { ideal: 15, max: 15 }
+      },
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    };
+
+    const [ roomDiv, localVideo, remoteVideo] = ["roomDiv",
+      "localVideo", "remoteVideo"].map((id) => document.getElementById(id));
+    let remoteDescriptionPromise, localStream, remoteStream,
+        rtcPeerConnection, isCaller;
+
+        const iceServers = {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' }
+          ]
+        };
+
+     const streamConstraints = constraints;
+
+
+
+
+function applyBitrateLimit(peerConnection) {
+  peerConnection.getSenders().forEach(sender => {
+    if (sender.track && sender.track.kind === 'video') {
+      const parameters = sender.getParameters();
+      if (!parameters.encodings) {
+        parameters.encodings = [{}];
+      }
+      parameters.encodings[0].maxBitrate = 200000;
+      parameters.encodings[0].maxFramerate = 15;
+      sender.setParameters(parameters).then(() => {
+        console.log("✓ Video optimized for smooth random chat");
+      }).catch(err =>
+        console.log("Error setting bitrate:", err)
+      );
+    }
+  });
+
+  setTimeout(() => {
+    peerConnection.getSenders().forEach(sender => {
+      if (sender.track && sender.track.kind === 'video') {
+        const settings = sender.track.getSettings();
+        console.log("📹 Sending:", settings.width + "x" + settings.height + " @ " + settings.frameRate + "fps");
+      }
+    });
+  }, 2000);
+}
+
     function connect() {
         if (isConnecting) return;
 
@@ -36,11 +95,32 @@ let stompClient = null;
             initializeConnection();
         }
     }
+    events=[""]
+
 
     function initializeConnection() {
         document.getElementById('messages').innerHTML = '';
         document.getElementById('emptyState').style.display = 'flex';
         roomId = null;
+        //camera access
+        navigator.mediaDevices.getUserMedia(streamConstraints).then(stream => {
+            console.log("Camera access granted!");
+
+            const videoTrack = stream.getVideoTracks()[0];
+            const settings = videoTrack.getSettings();
+            console.log("Camera settings:", settings);
+            console.log(`Resolution: ${settings.width}x${settings.height} @ ${settings.frameRate}fps`);
+
+            localStream = stream;
+            localVideo.srcObject = stream;
+            localVideo.muted = true;
+
+            // Start monitoring local video (optional)
+            // startNSFWMonitoring(localVideo, handleNSFWDetection);
+          }).catch(error => {
+            console.error("Camera error:", error);
+            alert(`Camera access failed: ${error.name} - ${error.message}`);
+          });
 
         const socket = new SockJS("/ws");
         stompClient = Stomp.over(socket);
@@ -56,6 +136,10 @@ let stompClient = null;
 
                 setButtonState('connected');
                 showGreeting('🎯 Connected with a stranger! Say hi!', true);
+                   const myNum = parseInt(userId.replace('user', ''));
+                   const partnerNum = parseInt(match.partnerId.replace('user', ''));
+
+                   isCaller = myNum < partnerNum;
 
                 subscribeToRoom(roomId);
             });
@@ -69,12 +153,6 @@ let stompClient = null;
                             connect();
                         }, 3000);
                 });
-//
-//                    stompClient.subscribe('/queue/errors/' + userId, function(msg) {
-//                    const message = JSON.parse(message.body);
-//                    showMessage(userId, message.payload, isSent)
-//                });
-
 
             stompClient.send("/app/connect", {}, JSON.stringify({ userId: userId }));
         }, function(error) {
@@ -86,12 +164,120 @@ let stompClient = null;
     }
 
     function subscribeToRoom(roomId) {
+    console.log("isCaller",isCaller);
+     if (isCaller) {
+        rtcPeerConnection = new RTCPeerConnection(iceServers);
+        rtcPeerConnection.onicecandidate = onIceCandidate;
+        rtcPeerConnection.ontrack = onAddStream;
+
+        localStream.getTracks().forEach(track => {
+          console.log("Adding track:", track.kind);
+          rtcPeerConnection.addTrack(track, localStream);
+        });
+
+        rtcPeerConnection
+        .createOffer()
+        .then(sessionDescription => {
+          rtcPeerConnection.setLocalDescription(sessionDescription);
+          stompClient.send('/app/offer',{} , JSON.stringify({
+               type: "offer", sdp: sessionDescription, userId
+                 }));
+          applyBitrateLimit(rtcPeerConnection);
+        })
+        .catch(error => console.log(error));
+      }
+
+      stompClient.subscribe("/queue/offer/"+userId,function(msg){
+         const offer = JSON.parse(msg.body);
+        if (!isCaller) {
+          rtcPeerConnection = new RTCPeerConnection(iceServers);
+          rtcPeerConnection.onicecandidate = onIceCandidate;
+          rtcPeerConnection.ontrack = onAddStream;
+
+          localStream.getTracks().forEach(track => {
+            console.log("Adding track:", track.kind);
+            rtcPeerConnection.addTrack(track, localStream);
+          });
+
+          if (rtcPeerConnection.signalingState === "stable") {
+            remoteDescriptionPromise = rtcPeerConnection.setRemoteDescription(
+                new RTCSessionDescription(offer));
+            remoteDescriptionPromise
+            .then(() => {
+              return rtcPeerConnection.createAnswer();
+            })
+            .then(sessionDescription => {
+              rtcPeerConnection.setLocalDescription(sessionDescription);
+          stompClient.send('/app/answer',{} , JSON.stringify({
+               type: "answer", sdp: sessionDescription, userId
+                 }));
+              applyBitrateLimit(rtcPeerConnection);
+            })
+            .catch(error => console.log(error));
+          }
+        }
+      })
+
+      stompClient.subscribe("/queue/answer/"+userId,function(msg){
+      const answer = JSON.parse(msg.body);
+       if (isCaller && rtcPeerConnection.signalingState === "have-local-offer") {
+          remoteDescriptionPromise = rtcPeerConnection.setRemoteDescription(
+              new RTCSessionDescription(answer));
+          remoteDescriptionPromise.catch(error => console.log(error));
+        }
+      })
+      stompClient.subscribe("/queue/candidate/"+userId,function(msg){
+      const e = JSON.parse(msg.body)
+        if (rtcPeerConnection) {
+            const candidate = new RTCIceCandidate({
+              sdpMLineIndex: e.label, candidate: e.candidate,
+            });
+
+            rtcPeerConnection.onicecandidateerror = (error) => {
+              console.error("Error adding ICE candidate: ", error);
+            };
+
+            if (remoteDescriptionPromise) {
+              remoteDescriptionPromise
+              .then(() => {
+                if (candidate != null) {
+                  return rtcPeerConnection.addIceCandidate(candidate);
+                }
+              })
+              .catch(error => console.log(
+                  "Error adding ICE candidate after remote description: ", error));
+            }
+            }
+      })
+
+
+    //subscribe for messages
         stompClient.subscribe('/topic/room/' + roomId, function(msg) {
             const messageObj = JSON.parse(msg.body);
             const isSent = messageObj.name === userId;
             showMessage(messageObj.name, messageObj.message, isSent);
         });
     }
+
+    const onIceCandidate = e => {
+      if (e.candidate) {
+        console.log("sending ice candidate");
+                  stompClient.send('/app/candidate',{} , JSON.stringify({
+                                 type: "candidate",
+                                 label: e.candidate.sdpMLineIndex,
+                                 id: e.candidate.sdpMid,
+                                 candidate: e.candidate.candidate,
+                                  userId
+                         }));
+      }
+    }
+
+    const onAddStream = e => {
+      remoteVideo.srcObject = e.streams[0];
+      remoteStream = e.stream;
+      }
+
+
 
     function sendMessage() {
         if (!stompClient || !roomId) {
@@ -162,3 +348,4 @@ let stompClient = null;
             }
         });
     });
+

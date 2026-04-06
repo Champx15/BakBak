@@ -9,8 +9,10 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Controller;
 
+import java.util.HashSet;
 import java.util.Objects;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -23,6 +25,7 @@ public class RoomController {
     private SimpMessagingTemplate messagingTemplate;
 
     private final Queue<String> waitingUsers = new ConcurrentLinkedQueue<>();
+    private final Set<String> waitingSet = new HashSet<>();
     public static final ConcurrentHashMap<String, String> userToUserMap = new ConcurrentHashMap<>();
 
 
@@ -33,10 +36,15 @@ public class RoomController {
         String userId = msg.getUserId();
 
         // Store the mapping HERE, not in WebSocketEventListener!
+        assert sessionId != null;
         WebSocketEventListener.sessionUserMap.put(sessionId, userId);
+        if(waitingSet.contains(userId)){
+            return;
+        }
 
         waitingUsers.add(userId);
-//        waitingUsers.add(msg.getUserId());
+        waitingSet.add(userId);
+        System.out.println("Current waiting list: "+waitingUsers);
         matchUsers();
     }
 
@@ -58,10 +66,13 @@ public class RoomController {
         }
     }
     public synchronized void managerRooms(String userId){
+        if(waitingUsers.contains(userId)) {waitingUsers.remove(userId);waitingSet.remove(userId);}
+        else{
         String partnerId= userToUserMap.remove(userId);
         userToUserMap.remove(partnerId);
         messagingTemplate.convertAndSend("/queue/disconnect/"+partnerId,"Partner Disconnected");
     }
+        }
 
     static class MatchResponse {
         private String roomId;

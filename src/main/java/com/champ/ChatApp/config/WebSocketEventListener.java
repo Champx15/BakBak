@@ -23,24 +23,26 @@ public class WebSocketEventListener {
     public static final ConcurrentHashMap<String, String> sessionUserMap = new ConcurrentHashMap<>();
 
 
-    @EventListener
-    public void handleWebSocketConnectListener(SessionConnectedEvent event) {
-        StompHeaderAccessor sha = StompHeaderAccessor.wrap(event.getMessage());
-        String userId = sha.getFirstNativeHeader("userId");
-//        if (userId != null) {
-//            sessionUserMap.put(sha.getSessionId(),userId);
-////            userSessionMap.put(userId, sha.getSessionId());
-//            System.out.println("Connected: " + userId + " -> " + sha.getSessionId());
-//        }
-    }
+//    @EventListener
+//    public void handleWebSocketConnectListener(SessionConnectedEvent event) {
+//        StompHeaderAccessor sha = StompHeaderAccessor.wrap(event.getMessage());
+//        String userId = sha.getFirstNativeHeader("userId");
+////        if (userId != null) {
+////            sessionUserMap.put(sha.getSessionId(),userId);
+//////            userSessionMap.put(userId, sha.getSessionId());
+////            System.out.println("Connected: " + userId + " -> " + sha.getSessionId());
+////        }
+//    }
 
     @EventListener
     public void handleWebSocketDisconnectListener(SessionDisconnectEvent event) {
         String sessionId = StompHeaderAccessor.wrap(event.getMessage()).getSessionId();
         String userId = sessionUserMap.get(sessionId);
+        assert sessionId != null;
         sessionUserMap.remove(sessionId);
 
-        if (userId != null) {  // ← Add this check!
+        if (userId != null) {
+
             roomController.managerRooms(userId);
             System.out.println("Disconnected: " + userId);
         } else {
