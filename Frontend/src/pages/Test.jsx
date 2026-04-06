@@ -21,23 +21,22 @@ import {
 } from "../conf/websocket";
 
 const Test = () => {
-  // ==================== STATE MANAGEMENT ====================
+
   const [isMicOn, setIsMicOn] = useState(true);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
   const [isLocalMainVideo, setIsLocalMainVideo] = useState(false);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
-  const [connectionState, setConnectionState] = useState("connecting"); // connecting, connected, disconnected
+  const [connectionState, setConnectionState] = useState("connecting"); 
   const [errorMessage, setErrorMessage] = useState("");
 
-  // ==================== REFS ====================
   const remoteVideoRef = useRef(null);
   const localVideoRef = useRef(null);
   const chatContainerRef = useRef(null);
   const navigate = useNavigate();
 
-  // ==================== INITIALIZE WEBSOCKET ====================
+  // initialize websocket
   useEffect(() => {
     console.log("🚀 Initializing WebSocket connection");
 
