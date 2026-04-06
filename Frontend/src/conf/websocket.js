@@ -1,5 +1,5 @@
 import { Client } from "@stomp/stompjs";
-
+import conf from "./conf"
 let stompClient = null;
 let roomId = null;
 let isConnecting = false;
@@ -123,8 +123,20 @@ export function initiateConnection(onMessageReceived, callbacks = {}) {
       }
 
       // Initialize STOMP client
+        let wsURL;
+  
+  try {
+    const apiUrl = new URL(conf.apiBase);
+    const protocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+    wsURL = `${protocol}//${apiUrl.host}${apiUrl.pathname}/ws`;
+    console.log("🔧 WebSocket URL:", wsURL);
+  } catch (error) {
+    console.error("❌ Error parsing conf.apiBase:", error);
+    return;
+  }
+  
       stompClient = new Client({
-        brokerURL: `ws://${window.location.hostname}:8080/ws`, // Change to your backend URL ws://localhost:8080/ws
+        brokerURL: wsURL,
         onConnect: () => {
           console.log("✓ Connected to WebSocket");
           isConnecting = false;
